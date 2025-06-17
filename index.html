@@ -1,0 +1,223 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>모스부호 자동 변환기</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    max-width: 600px;
+    margin: auto;
+    background: #121212;
+    color: #eee;
+  }
+  h1 {
+    text-align: center;
+    color: #fff;
+  }
+  textarea {
+    width: 100%;
+    height: 100px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    padding: 10px;
+    box-sizing: border-box;
+    resize: vertical;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    color: #eee;
+  }
+  textarea::placeholder {
+    color: #888;
+  }
+  button {
+    padding: 10px 15px;
+    font-size: 16px;
+    margin: 5px 5px 10px 0;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+  button:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
+  button:disabled {
+    background-color: #555;
+    cursor: default;
+  }
+  #copyNotice {
+    text-align: center;
+    color: #4caf50;
+    font-size: 14px;
+    height: 20px;
+    margin-top: -5px;
+    margin-bottom: 15px;
+  }
+  .section-title {
+    font-weight: bold;
+    margin-top: 30px;
+    margin-bottom: 5px;
+    font-size: 18px;
+    color: #fff;
+  }
+  #btnGroup {
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+
+<h1>모스부호 자동 변환기 (한글 + 영어)</h1>
+
+<div class="section-title">텍스트 → 모스부호</div>
+<textarea id="inputText" placeholder="텍스트를 입력하세요..."></textarea>
+<textarea id="outputText" placeholder="모스부호 출력..." readonly></textarea>
+
+<div id="btnGroup">
+  <button id="playBtn" onclick="playMorse()">🔊 소리 출력</button>
+  <button id="muteBtn" onclick="toggleMute()">🔊 음소거</button>
+  <button onclick="copyMorse()">📋 복사</button>
+</div>
+
+<div id="copyNotice"></div>
+
+<script>
+  const morseMap = {
+    'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..',
+    'E': '.', 'F': '..-.', 'G': '--.', 'H': '....',
+    'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+    'M': '--', 'N': '-.', 'O': '---', 'P': '.--.',
+    'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-',
+    'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+    'Y': '-.--', 'Z': '--..',
+    '0': '-----', '1': '.----', '2': '..---', '3': '...--',
+    '4': '....-', '5': '.....', '6': '-....', '7': '--...',
+    '8': '---..', '9': '----.',
+    ' ': '/',
+    // 한글 자모 (초성, 중성, 종성 일부)
+    'ㄱ': '--.', 'ㄲ': '----', 'ㄴ': '-.-.', 'ㄷ': '-..', 'ㄸ': '.-..-', 'ㄹ': '.-..',
+    'ㅁ': '--', 'ㅂ': '-...', 'ㅃ': '-..-', 'ㅅ': '...', 'ㅆ': '...-', 'ㅇ': '.',
+    'ㅈ': '.---', 'ㅉ': '.--..', 'ㅊ': '---.', 'ㅋ': '-.-', 'ㅌ': '..--', 'ㅍ': '.--.', 'ㅎ': '----',
+    'ㅏ': '.-', 'ㅐ': '.-.-', 'ㅑ': '.---.', 'ㅒ': '.----', 'ㅓ': '-.-', 'ㅔ': '-.-.-',
+    'ㅕ': '--..', 'ㅖ': '--.-', 'ㅗ': '---', 'ㅘ': '---.', 'ㅙ': '---.-', 'ㅚ': '---..',
+    'ㅛ': '..--..', 'ㅜ': '..-', 'ㅝ': '..-..', 'ㅞ': '..-.-', 'ㅟ': '..--.', 'ㅠ': '..--.-',
+    'ㅡ': '..--.', 'ㅢ': '..---.', 'ㅣ': '..'
+  };
+
+  function decomposeHangul(text){
+    const chosung = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+    const jungsung = ["ㅏ","ㅐ","ㅑ","ㅒ","ㅓ","ㅔ","ㅕ","ㅖ","ㅗ","ㅘ","ㅙ","ㅚ","ㅛ","ㅜ","ㅝ","ㅞ","ㅟ","ㅠ","ㅡ","ㅢ","ㅣ"];
+    const jongsung = ["", "ㄱ","ㄲ","ㄳ","ㄴ","ㄵ","ㄶ","ㄷ","ㄹ","ㄺ","ㄻ","ㄼ","ㄽ","ㄾ","ㄿ","ㅀ","ㅁ","ㅂ","ㅄ","ㅅ","ㅆ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+    let result = '';
+    for(let ch of text){
+      const code = ch.charCodeAt(0);
+      if(code >= 0xAC00 && code <= 0xD7A3){
+        const base = code - 0xAC00;
+        const cho = Math.floor(base / 588);
+        const jung = Math.floor((base % 588) / 28);
+        const jong = base % 28;
+        result += chosung[cho] + jungsung[jung];
+        if(jongsung[jong]) result += jongsung[jong];
+      } else {
+        result += ch;
+      }
+    }
+    return result;
+  }
+
+  const inputBox = document.getElementById("inputText");
+  const outputBox = document.getElementById("outputText");
+  const playBtn = document.getElementById("playBtn");
+  const muteBtn = document.getElementById("muteBtn");
+  let currentMorse = "";
+  let isMuted = false;
+
+  inputBox.addEventListener("input", () => {
+    let text = inputBox.value.toUpperCase();
+    text = decomposeHangul(text);
+    let morse = "";
+    for(let ch of text){
+      morse += morseMap[ch] ? morseMap[ch] + " " : "";
+    }
+    morse = morse.trim();
+    currentMorse = morse;
+    outputBox.value = morse;
+  });
+
+  function playBeep(ctx, startTime, duration){
+    if(isMuted) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(800, startTime);
+
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(0.5, startTime + 0.01);
+    gain.gain.linearRampToValueAtTime(0, startTime + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  function playMorseSound(morse){
+    if(isMuted) return 0;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let time = audioCtx.currentTime;
+    for(let symbol of morse){
+      if(symbol === "."){
+        playBeep(audioCtx, time, 0.1);
+        time += 0.2;
+      } else if(symbol === "-"){
+        playBeep(audioCtx, time, 0.3);
+        time += 0.4;
+      } else if(symbol === " "){
+        time += 0.2;
+      } else if(symbol === "/"){
+        time += 0.6;
+      }
+    }
+    return time - audioCtx.currentTime;
+  }
+
+  function playMorse(){
+    if(!currentMorse) return;
+
+    playBtn.textContent = "🔊 소리 출력 중...";
+    playBtn.disabled = true;
+
+    const duration = playMorseSound(currentMorse);
+
+    setTimeout(() => {
+      playBtn.textContent = "🔈 소리 출력";
+      playBtn.disabled = false;
+    }, duration * 1000 + 100);
+  }
+
+  function copyMorse(){
+    const text = outputBox.value;
+    if(!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const notice = document.getElementById("copyNotice");
+      notice.textContent = "모스부호가 복사되었습니다!";
+      setTimeout(() => notice.textContent = "", 2000);
+    });
+  }
+
+  function toggleMute(){
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? "🔇 음소거 ON" : "🔊 음소거 OFF";
+  }
+</script>
+
+</body>
+</html>
